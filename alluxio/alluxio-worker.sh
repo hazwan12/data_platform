@@ -8,4 +8,4 @@ docker run --rm \
        -Dalluxio.worker.ramdisk.size=1G \
        -Dalluxio.master.hostname=alluxio-master \
        -Dalluxio.worker.hostname=alluxio-worker" \
-    alluxio/alluxio worker
+    data_platform/alluxio:latest worker

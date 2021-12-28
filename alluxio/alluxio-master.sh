@@ -7,4 +7,4 @@ docker run --rm \
        -Dalluxio.master.hostname=alluxio-master \
        -Dalluxio.master.mount.table.root.ufs=/opt/alluxio/underFSStorage \
        -Dalluxio.security.authorization.permission.enabled=false" \
-    alluxio/alluxio master
+    data_platform/alluxio:latest master
