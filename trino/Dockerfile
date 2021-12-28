@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y wget procps python3 \
 
 COPY ./etc ./trino/etc
 COPY ./alluxio-2.7.1-client.jar ./trino/plugin/hive
+COPY ./trino /bin/
 
 ENV TRINO_HOME=/opt/trino
 ENV PATH=${TRINO_HOME}/bin:${PATH}
