@@ -153,6 +153,31 @@ connector.name=hive
 hive.metastore.uri=thrift://hive:9083
 hive.non-managed-table-writes-enabled=true
 ```
+
+### Spark
+Spark is a multi purpose cluster computing engine.
+
+#### Jars Dependencies
+- Jar dependencies of other applications can be added to spark to allow interaction between them
+- Jars can be distributed either through
+    - `spark-submit --jars <comma seperated list of jar paths>`
+    - adding the jars directly to the `${SPARK_HOME}/jars directory`
+- In this example the 2 required jars are copied using the latter
+    - `${SPARK_HOME}/jars/alluxio-2.7.1-client.jar` Alluxio client jar allows Spark to interact with the Alluxio FS
+    - `${SPARK_HOME}/jars/trino-jdbc-367.jar` Trino JDBC connector allows Spark to make a JDBC connection to Trino
+
+#### Build the docker image
+- Navigate into the `spark` directory and run the following command
+```bash
+docker build -f Dockerfile -t data_platform/spark:latest . 
+```
+
+#### Start Spark Image
+- Run the below commands in shell client
+```bash
+bash start-spark.sh
+```
+
 ## Demo
 ### Connect to Trino DB
 - A catalog is equivalent to a connecter
@@ -191,7 +216,8 @@ CREATE TABLE hive.lta_datamall.raw_buses_age_distribution (
 SELECT * FROM hive.lta_datamall.raw_buses_age_distribution;
 ```
 
-## Create a table over the 'refined' file in the bucket
+### Insert data from raw to refined table with Trino
+- Create a table over the 'refined' file in the bucket
 - Bug in trino where the directory must exists first
 ```
 docker exec -it alluxio-master alluxio fs mkdir /lta-datamall/refined/buses_age_distribution
@@ -209,12 +235,46 @@ CREATE TABLE hive.lta_datamall.buses_age_distribution (
 );
 ```
 
-## Insert data from raw table
-
+- Insert the data
 ```
 INSERT INTO hive.lta_datamall.buses_age_distribution
-SELECT age, number, year
+SELECT 
+cast(age as varchar), 
+cast(number as integer), 
+cast(year as integer)
 FROM hive.lta_datamall.raw_buses_age_distribution;
+```
+
+### Insert data from raw to refined table with Spark
+
+- Read file from alluxio path into DF
+```python
+df = spark.read.csv("alluxio://alluxio-master:19998/lta-datamall/raw/buses_age_distribution/", header=True, inferSchema=True)
+```
+
+- Rewrite file into the refined table path
+- Note that partition column has to be last in col order
+```python
+df.select("age_years", "number", "year")\
+    .write.parquet("alluxio://alluxio-master:19998/lta-datamall/refined/buses_age_distribution/", mode="overwrite", partitionBy="year")
+```
+
+- Create table on top of the directory
+```
+CREATE TABLE hive.lta_datamall.buses_age_distribution (
+    age VARCHAR,
+    number INTEGER,
+    year INTEGER
+) WITH (
+    external_location = 'alluxio://alluxio-master:19998/lta-datamall/refined/buses_age_distribution',
+    format='PARQUET',
+    partitioned_by = ARRAY['year']
+);
+```
+
+### Verify refined table
+```
+SELECT * FROM hive.lta_datamall.buses_age_distribution
 ```
 
 ## References
